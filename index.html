@@ -11,6 +11,7 @@
   <header>
     <h1>ShatteredCrown</h1>
     <p>Battle Chess &mdash; where pieces fight for the crown</p>
+    <button id="help-btn" title="How to Play" aria-label="Instructions">?</button>
   </header>
 
   <div class="game-wrapper">
@@ -42,6 +43,12 @@
 
       <div id="status-banner"></div>
 
+      <div id="ability-area">
+        <button id="ability-btn" style="display:none"></button>
+        <button id="chain-skip-btn" style="display:none">Skip Chain</button>
+        <div id="ability-hint"></div>
+      </div>
+
       <button id="new-game-btn">New Game</button>
 
       <h2>SELECTED PIECE</h2>
@@ -67,6 +74,113 @@
       <button id="overlay-btn">Play Again</button>
     </div>
   </div>
+
+  <!-- King ability selection overlay (pre-game) -->
+  <div id="king-select-overlay">
+    <div id="king-select-box">
+      <h2 id="ks-title">White — Choose Your King's Ability</h2>
+      <p class="ks-subtitle">This ability can be used <strong>once per match</strong> and does not cost a turn.</p>
+      <div id="ks-options"></div>
+    </div>
+  </div>
+
+  <!-- Instructions overlay (Windows-style floating window) -->
+  <div id="help-overlay">
+    <div id="help-box">
+
+      <!-- Title bar -->
+      <div class="win-titlebar">
+        <span class="win-title">⚔ ShatteredCrown — How to Play</span>
+        <div class="win-controls">
+          <button class="win-btn win-max" title="Maximize">□</button>
+          <button class="win-btn win-close" title="Close">✕</button>
+        </div>
+      </div>
+
+      <!-- Scrollable content -->
+      <div class="win-content">
+
+        <div class="help-section">
+          <h3>Overview</h3>
+          <p>ShatteredCrown is Battle Chess — pieces have HP and fight on contact. The game ends when a King is <strong>captured</strong> (checkmate) or no legal moves remain (stalemate).</p>
+        </div>
+
+        <div class="help-section">
+          <h3>Combat</h3>
+          <ul>
+            <li>Click a piece, then click a square to move or attack.</li>
+            <li>If the defender <strong>survives</strong>, the attacker stays in place and the turn ends.</li>
+            <li>If the defender's HP reaches <strong>0</strong>, it is captured and the attacker moves to its square.</li>
+          </ul>
+        </div>
+
+        <div class="help-section">
+          <h3>Pieces &amp; Abilities</h3>
+          <div class="help-piece-grid">
+
+            <div class="help-piece">
+              <div class="hp-piece-header"><span class="hp-sym white">♙</span><strong>Pawn</strong><span class="hp-stats">HP 40 · ATK 10</span></div>
+              <div class="hp-ability"><span class="hp-tag eot">End-of-Turn</span><strong>Strength in Numbers</strong> — Each pawn adjacent to a friendly pawn gains +1 HP at end of turn.</div>
+            </div>
+
+            <div class="help-piece">
+              <div class="hp-piece-header"><span class="hp-sym white">♖</span><strong>Rook</strong><span class="hp-stats">HP 50 · ATK 20</span></div>
+              <div class="hp-ability"><span class="hp-tag passive">Passive</span><strong>Its Hammer Time</strong> — Every attack pierces through to the enemy directly behind the first target, dealing full damage to both. Shows <em>⊕</em> on the pierce.</div>
+            </div>
+
+            <div class="help-piece">
+              <div class="hp-piece-header"><span class="hp-sym white">♘</span><strong>Knight</strong><span class="hp-stats">HP 60 · ATK 12</span></div>
+              <div class="hp-ability"><span class="hp-tag active">Active</span><strong>Hippity Hoppity</strong> — Attacking opens chain mode (teal rings). Attack up to 3 enemies in sequence at knight-jump distance from the last hit. Knight always returns to origin. Click <em>Skip Chain</em> to end early.</div>
+            </div>
+
+            <div class="help-piece">
+              <div class="hp-piece-header"><span class="hp-sym white">♗</span><strong>Bishop</strong><span class="hp-stats">HP 30 · ATK 20</span></div>
+              <div class="hp-ability"><span class="hp-tag active">Active</span><strong>I'm Pope-ing Off</strong> — Select the bishop and click <em>⛪ I'm Pope-ing Off</em>. Heals all friendly pieces in the 3×3 area by 7 HP. Costs the turn.</div>
+            </div>
+
+            <div class="help-piece">
+              <div class="hp-piece-header"><span class="hp-sym white">♕</span><strong>Queen</strong><span class="hp-stats">HP 100 · ATK 25</span></div>
+              <div class="hp-ability"><span class="hp-tag passive">Passive</span><strong>Stunning Beauty</strong> — Hit pieces are <em class="stun-color">★ STUNNED</em> and cannot attack next turn.</div>
+              <div class="hp-ability"><span class="hp-tag passive">Passive</span><strong>HP Tax</strong> — +10% of target's current HP as bonus damage. Shows <em class="tax-color">+N TAX</em>.</div>
+            </div>
+
+            <div class="help-piece">
+              <div class="hp-piece-header"><span class="hp-sym white">♔</span><strong>King</strong><span class="hp-stats">HP 35 · ATK 4</span></div>
+              <div class="hp-ability"><span class="hp-tag once">Once/Match</span><strong>King's Choice</strong> — Choose one of four abilities before the game. Use it once, free action (no turn cost). Shown when King is selected.</div>
+            </div>
+
+          </div>
+        </div>
+
+        <div class="help-section">
+          <h3>King Abilities</h3>
+          <div class="help-king-grid">
+            <div class="help-king-ability">
+              <strong>Higher Morale</strong>
+              <p>Spawn a friendly Rook on any empty square. King recovers 25% max HP.</p>
+            </div>
+            <div class="help-king-ability">
+              <strong>Za Wardou <em>(Toki wa Tomare)</em></strong>
+              <p>Time stops — the opponent loses their next turn.</p>
+            </div>
+            <div class="help-king-ability">
+              <strong>Dirty Deeds</strong>
+              <p>Swap the King's position with any other friendly piece.</p>
+            </div>
+            <div class="help-king-ability">
+              <strong>Epitath</strong>
+              <p>Reverse the opponent's last move — the board reverts to before they moved.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="help-section help-tip">
+          <strong>Tip:</strong> Stunned pieces show a purple <em>★</em>. King abilities appear in the panel when the King is selected and the ability hasn't been used.
+        </div>
+
+      </div><!-- .win-content -->
+    </div><!-- #help-box -->
+  </div><!-- #help-overlay -->
 
   <script src="web/js/app.js"></script>
 </body>
