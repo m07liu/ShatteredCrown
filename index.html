@@ -8,12 +8,96 @@
 </head>
 <body>
 
+
+  <!-- Intro screen -->
+  <div id="intro-overlay">
+    <div class="intro-bg-symbols" aria-hidden="true">
+      <span style="top:6%;left:4%;font-size:9rem;--i:0">♚</span>
+      <span style="top:12%;right:6%;font-size:7rem;--i:1">♛</span>
+      <span style="bottom:8%;left:8%;font-size:8rem;--i:2">♜</span>
+      <span style="bottom:15%;right:4%;font-size:10rem;--i:3">♝</span>
+      <span style="top:45%;left:2%;font-size:6rem;--i:4">♞</span>
+      <span style="top:30%;right:2%;font-size:7.5rem;--i:5">♟</span>
+      <span style="top:70%;left:40%;font-size:8rem;--i:6">♔</span>
+    </div>
+    <div id="intro-layout">
+
+      <!-- Left: hero -->
+      <div id="intro-content">
+        <div id="intro-crown">♛</div>
+        <h1 id="intro-title">ShatteredCrown</h1>
+        <p id="intro-subtitle">Battle Chess &mdash; where pieces fight for the crown</p>
+        <div id="intro-divider"><span>——</span> ⚔ <span>——</span></div>
+        <button id="intro-start-btn">⚔ &nbsp;Start Game</button>
+      </div>
+
+      <!-- Right: quick guide -->
+      <div id="intro-guide">
+        <h2 id="intro-guide-title">How to Play</h2>
+        <div id="intro-cards">
+
+          <div class="intro-card">
+            <span class="ic-icon">⚔</span>
+            <div>
+              <strong>Battle Chess</strong>
+              <p>Pieces have HP. Moving onto an enemy attacks it — not an instant capture. Reduce HP to zero to claim the square. Survive a hit and the attacker stays put, turn ends.</p>
+            </div>
+          </div>
+
+          <div class="intro-card">
+            <span class="ic-icon">💀</span>
+            <div>
+              <strong>Last Stand</strong>
+              <p>About to land a killing blow? A challenge screen appears — type 5 random letters in <strong>7 seconds</strong> to execute the capture. Fail, and your turn ends with nothing gained.</p>
+            </div>
+          </div>
+
+          <div class="intro-card">
+            <span class="ic-icon">✨</span>
+            <div>
+              <strong>Piece Abilities</strong>
+              <p>Every piece type has a unique power. Knights chain up to 3 attacks, Bishops heal allies in a 3×3 area, Rooks pierce the enemy behind their target, Queens stun and tax HP.</p>
+            </div>
+          </div>
+
+          <div class="intro-card">
+            <span class="ic-icon">👑</span>
+            <div>
+              <strong>King's Choice</strong>
+              <p>Before each match both Kings pick one once-per-game ability: spawn a Rook, stop time, teleport with a friendly piece, or reverse the opponent's last move.</p>
+            </div>
+          </div>
+
+          <div class="intro-card">
+            <span class="ic-icon">🌋</span>
+            <div>
+              <strong>Battlefield Maps</strong>
+              <p>Pick from 4 maps with live hazards. Volcano tiles deal 10 damage per turn, water blocks movement and line-of-sight, repair squares boost Attack, fog hides enemy pieces.</p>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+
   <header>
     <h1>ShatteredCrown</h1>
     <p>Battle Chess &mdash; where pieces fight for the crown</p>
+    <button id="help-btn" title="How to Play" aria-label="Instructions">?</button>
+
   </header>
 
   <div class="game-wrapper">
+
+
+    <!-- Map selection sidebar -->
+    <aside class="map-panel">
+      <h2>MAP</h2>
+      <div id="map-options"></div>
+    </aside>
+
 
     <!-- Board -->
     <div class="board-wrap">
@@ -42,7 +126,20 @@
 
       <div id="status-banner"></div>
 
+
+      <div id="ability-area">
+        <button id="ability-btn" style="display:none"></button>
+        <button id="chain-skip-btn" style="display:none">Skip Chain</button>
+        <div id="ability-hint"></div>
+      </div>
+
       <button id="new-game-btn">New Game</button>
+
+      <h2>SELECTED PIECE</h2>
+      <div id="piece-info" class="piece-info empty">
+        <span class="piece-info-hint">Click a piece to inspect</span>
+      </div>
+
 
       <h2>CAPTURED</h2>
       <div class="captured-row">Black lost: <span id="cap-white">—</span></div>
@@ -62,6 +159,171 @@
       <button id="overlay-btn">Play Again</button>
     </div>
   </div>
+
+
+  <!-- King ability selection overlay (pre-game) -->
+  <div id="king-select-overlay">
+    <div id="king-select-box">
+      <h2 id="ks-title">White — Choose Your King's Ability</h2>
+      <p class="ks-subtitle">This ability can be used <strong>once per match</strong> and does not cost a turn.</p>
+      <div id="ks-options"></div>
+    </div>
+  </div>
+
+  <!-- Instructions overlay (Windows-style floating window) -->
+  <div id="help-overlay">
+    <div id="help-box">
+
+      <!-- Title bar -->
+      <div class="win-titlebar">
+        <span class="win-title">⚔ ShatteredCrown — How to Play</span>
+        <div class="win-controls">
+          <button class="win-btn win-max" title="Maximize">□</button>
+          <button class="win-btn win-close" title="Close">✕</button>
+        </div>
+      </div>
+
+      <!-- Scrollable content -->
+      <div class="win-content">
+
+        <div class="help-section">
+          <h3>Overview</h3>
+          <p>ShatteredCrown is Battle Chess — pieces have HP and fight on contact. The game ends when a King is <strong>captured</strong> (checkmate) or no legal moves remain (stalemate).</p>
+        </div>
+
+        <div class="help-section">
+          <h3>Combat</h3>
+          <ul>
+            <li>Click a piece, then click a square to move or attack.</li>
+            <li>If the defender <strong>survives</strong>, the attacker stays in place and the turn ends.</li>
+            <li>If the defender's HP reaches <strong>0</strong>, it is captured and the attacker moves to its square.</li>
+          </ul>
+        </div>
+
+        <div class="help-section">
+          <h3>Pieces &amp; Abilities</h3>
+          <div class="help-piece-grid">
+
+            <div class="help-piece">
+              <div class="hp-piece-header"><span class="hp-sym white">♙</span><strong>Pawn</strong><span class="hp-stats">HP 40 · ATK 10</span></div>
+              <div class="hp-ability"><span class="hp-tag eot">End-of-Turn</span><strong>Strength in Numbers</strong> — Each pawn adjacent to a friendly pawn gains +1 HP at end of turn.</div>
+            </div>
+
+            <div class="help-piece">
+              <div class="hp-piece-header"><span class="hp-sym white">♖</span><strong>Rook</strong><span class="hp-stats">HP 50 · ATK 20</span></div>
+              <div class="hp-ability"><span class="hp-tag passive">Passive</span><strong>Its Hammer Time</strong> — Every attack pierces through to the enemy directly behind the first target, dealing full damage to both. Shows <em>⊕</em> on the pierce.</div>
+            </div>
+
+            <div class="help-piece">
+              <div class="hp-piece-header"><span class="hp-sym white">♘</span><strong>Knight</strong><span class="hp-stats">HP 60 · ATK 12</span></div>
+              <div class="hp-ability"><span class="hp-tag active">Active</span><strong>Hippity Hoppity</strong> — Attacking opens chain mode (teal rings). Attack up to 3 enemies in sequence at knight-jump distance from the last hit. Knight always returns to origin. Click <em>Skip Chain</em> to end early.</div>
+            </div>
+
+            <div class="help-piece">
+              <div class="hp-piece-header"><span class="hp-sym white">♗</span><strong>Bishop</strong><span class="hp-stats">HP 30 · ATK 20</span></div>
+              <div class="hp-ability"><span class="hp-tag active">Active</span><strong>I'm Pope-ing Off</strong> — Select the bishop and click <em>⛪ I'm Pope-ing Off</em>. Heals all friendly pieces in the 3×3 area by 7 HP. Costs the turn.</div>
+            </div>
+
+            <div class="help-piece">
+              <div class="hp-piece-header"><span class="hp-sym white">♕</span><strong>Queen</strong><span class="hp-stats">HP 100 · ATK 25</span></div>
+              <div class="hp-ability"><span class="hp-tag passive">Passive</span><strong>Stunning Beauty</strong> — Hit pieces are <em class="stun-color">★ STUNNED</em> and cannot attack next turn.</div>
+              <div class="hp-ability"><span class="hp-tag passive">Passive</span><strong>HP Tax</strong> — +10% of target's current HP as bonus damage. Shows <em class="tax-color">+N TAX</em>.</div>
+            </div>
+
+            <div class="help-piece">
+              <div class="hp-piece-header"><span class="hp-sym white">♔</span><strong>King</strong><span class="hp-stats">HP 35 · ATK 4</span></div>
+              <div class="hp-ability"><span class="hp-tag once">Once/Match</span><strong>King's Choice</strong> — Choose one of four abilities before the game. Use it once, free action (no turn cost). Shown when King is selected.</div>
+            </div>
+
+          </div>
+        </div>
+
+        <div class="help-section">
+          <h3>King Abilities</h3>
+          <div class="help-king-grid">
+            <div class="help-king-ability">
+              <strong>Higher Morale</strong>
+              <p>Spawn a friendly Rook on any empty square. King recovers 25% max HP.</p>
+            </div>
+            <div class="help-king-ability">
+              <strong>Za Wardou <em>(Toki wa Tomare)</em></strong>
+              <p>Time stops — the opponent loses their next turn.</p>
+            </div>
+            <div class="help-king-ability">
+              <strong>Dirty Deeds</strong>
+              <p>Swap the King's position with any other friendly piece.</p>
+            </div>
+            <div class="help-king-ability">
+              <strong>Epitath</strong>
+              <p>Reverse the opponent's last move — the board reverts to before they moved.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="help-section">
+          <h3>Environment Tiles</h3>
+          <p>Maps like <em>Hybrid</em>, <em>Flood</em>, and <em>Foggy</em> scatter special tiles across the board. Switching maps resets the match.</p>
+          <div class="help-env-grid">
+
+            <div class="help-env-tile">
+              <div class="env-demo-cell dark" data-env="volcano"></div>
+              <div class="help-env-text">
+                <strong>🔥 Volcano</strong>
+                <p>Deals <strong>10 damage</strong> to any piece standing on it at end of turn. The lava does not discriminate.</p>
+              </div>
+            </div>
+
+            <div class="help-env-tile">
+              <div class="env-demo-cell dark" data-env="water"></div>
+              <div class="help-env-text">
+                <strong>🌊 Water</strong>
+                <p><strong>Impassable.</strong> Pieces and sliding line-of-sight (Rook, Bishop, Queen) cannot cross water tiles.</p>
+              </div>
+            </div>
+
+            <div class="help-env-tile">
+              <div class="env-demo-cell light" data-env="repair"></div>
+              <div class="help-env-text">
+                <strong>⚙ Repair</strong>
+                <p>Permanently grants <strong>+5 Attack</strong> to any piece that steps on it. One-time buff per visit.</p>
+              </div>
+            </div>
+
+            <div class="help-env-tile">
+              <div class="env-demo-cell dark" data-env="fog"></div>
+              <div class="help-env-text">
+                <strong>🌫 Fog</strong>
+                <p>Enemy pieces hidden in fog are <strong>invisible</strong> unless you have a friendly piece in an adjacent square.</p>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <div class="help-section help-tip">
+          <strong>Tip:</strong> Stunned pieces show a purple <em>★</em>. King abilities appear in the panel when the King is selected and the ability hasn't been used.
+        </div>
+
+      </div><!-- .win-content -->
+    </div><!-- #help-box -->
+  </div><!-- #help-overlay -->
+
+  <!-- Last Stand challenge overlay -->
+  <div id="last-stand-overlay">
+    <div id="ls-title">⚔ LAST STAND</div>
+    <div id="ls-arena">
+      <span id="ls-attacker" class="ls-piece-sym"></span>
+      <div id="ls-clash">⚔</div>
+      <span id="ls-defender" class="ls-piece-sym"></span>
+    </div>
+    <div id="ls-challenge">
+      <p id="ls-hint">Type the letters to capture!</p>
+      <div id="ls-letters"></div>
+      <div id="ls-timer-bar"><div id="ls-timer-fill"></div></div>
+      <div id="ls-result"></div>
+    </div>
+  </div>
+
 
   <script src="web/js/app.js"></script>
 </body>
