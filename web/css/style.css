@@ -5,8 +5,8 @@
   --bg:          #0d0f14;
   --panel-bg:    #13161e;
   --border:      #2a2d3a;
-  --light-sq:    #c8a96e;
-  --dark-sq:     #6b4226;
+  --light-sq:    #4f7b33;
+  --dark-sq:     #2b5218;
   --highlight:   rgba(255, 220, 50, 0.45);
   --legal-dot:   rgba(255, 220, 50, 0.6);
   --capture-ring:rgba(220, 60, 60, 0.75);
@@ -102,8 +102,10 @@ header p {
   display: grid;
   grid-template-columns: repeat(8, 72px);
   grid-template-rows:    repeat(8, 72px);
-  border: 2px solid var(--border);
-  box-shadow: 0 0 40px rgba(0,0,0,.8), 0 0 80px rgba(200,163,64,.08);
+  border: 4px solid #1a3310;
+  outline: 2px solid #0d1f08;
+  image-rendering: pixelated;
+  box-shadow: 0 0 40px rgba(0,0,0,.8), 0 0 80px rgba(60,120,30,.12), 0 6px 24px rgba(0,0,0,.6);
 }
 
 .cell {
@@ -117,8 +119,35 @@ header p {
   transition: background .12s;
   user-select: none;
 }
-.cell.light { background: var(--light-sq); }
-.cell.dark  { background: var(--dark-sq); }
+/* Grass pixel texture: vertical blade stripes + faint horizontal row lines */
+.cell.light {
+  background-color: var(--light-sq);
+  background-image:
+    repeating-linear-gradient(
+      90deg,
+      transparent 0px, transparent 3px,
+      rgba(255,255,255,.04) 3px, rgba(255,255,255,.04) 4px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      transparent 0px, transparent 7px,
+      rgba(0,0,0,.10) 7px, rgba(0,0,0,.10) 8px
+    );
+}
+.cell.dark {
+  background-color: var(--dark-sq);
+  background-image:
+    repeating-linear-gradient(
+      90deg,
+      transparent 0px, transparent 3px,
+      rgba(255,255,255,.03) 3px, rgba(255,255,255,.03) 4px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      transparent 0px, transparent 7px,
+      rgba(0,0,0,.15) 7px, rgba(0,0,0,.15) 8px
+    );
+}
 
 /* selected */
 .cell.selected {
@@ -167,19 +196,37 @@ header p {
   50%       { box-shadow: inset 0 0 24px rgba(255,80,80,1); }
 }
 
-/* last move highlight */
-.cell.last-move { background: rgba(120,160,255,.28) !important; }
+/* last move highlight — lighter blue + crisp white border */
+.cell.last-move {
+  background: rgba(160,210,255,.45) !important;
+  box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.65);
+}
 
 /* ── Piece ────────────────────────────────────────────────────────────── */
 .piece {
   font-size: 44px;
   line-height: 1;
   pointer-events: none;
-  filter: drop-shadow(1px 2px 3px rgba(0,0,0,.7));
   transition: transform .1s;
 }
-.piece.white { color: var(--white-piece); }
-.piece.black { color: var(--black-piece); }
+/* White pieces: hard pixel offset shadow (3D extrusion) + soft depth halo */
+.piece.white {
+  color: var(--white-piece);
+  filter:
+    drop-shadow(2px 3px 0px rgba(0,0,0,.95))
+    drop-shadow(3px 5px 0px rgba(0,0,0,.55))
+    drop-shadow(0px 6px 8px rgba(0,0,0,.5))
+    drop-shadow(-1px -1px 0px rgba(255,255,255,.25));
+}
+/* Black pieces: deeper extrusion to stand out from dark squares */
+.piece.black {
+  color: var(--black-piece);
+  filter:
+    drop-shadow(2px 3px 0px rgba(0,0,0,1))
+    drop-shadow(3px 5px 0px rgba(0,0,0,.7))
+    drop-shadow(0px 6px 10px rgba(0,0,0,.6))
+    drop-shadow(0px 0px 3px rgba(180,220,100,.2));
+}
 
 /* ── Side panel ───────────────────────────────────────────────────────── */
 .panel {
@@ -948,6 +995,167 @@ header p {
 .ks-btn:hover {
   background: rgba(168,85,247,.15);
   border-color: #a855f7;
+}
+
+/* ── Environment Tiles ────────────────────────────────────────────────── */
+.cell[data-env="volcano"] {
+  background-image: radial-gradient(ellipse at center, rgba(220,38,38,.35) 0%, transparent 75%);
+  box-shadow: inset 0 0 8px rgba(239,68,68,.45);
+}
+.cell[data-env="volcano"]::before {
+  content: "🌋";
+  position: absolute;
+  bottom: 1px;
+  right: 2px;
+  font-size: .62rem;
+  opacity: .7;
+  pointer-events: none;
+}
+.cell[data-env="water"] {
+  background-image: radial-gradient(ellipse at center, rgba(37,99,235,.42) 0%, transparent 75%);
+  box-shadow: inset 0 0 10px rgba(59,130,246,.5);
+}
+.cell[data-env="water"]::before {
+  content: "🌊";
+  position: absolute;
+  bottom: 1px;
+  right: 2px;
+  font-size: .62rem;
+  opacity: .8;
+  pointer-events: none;
+}
+.cell[data-env="repair"] {
+  background-image: radial-gradient(ellipse at center, rgba(16,185,129,.35) 0%, transparent 75%);
+  box-shadow: inset 0 0 8px rgba(52,211,153,.45);
+}
+.cell[data-env="repair"]::before {
+  content: "⚙";
+  position: absolute;
+  bottom: 1px;
+  right: 2px;
+  font-size: .65rem;
+  opacity: .75;
+  pointer-events: none;
+  color: #34d399;
+}
+.cell[data-env="fog"] {
+  background-image: linear-gradient(135deg, rgba(100,116,139,.5) 0%, rgba(71,85,105,.4) 100%);
+  box-shadow: inset 0 0 12px rgba(148,163,184,.3);
+}
+.cell[data-env="fog"]::before {
+  content: "🌫";
+  position: absolute;
+  bottom: 1px;
+  right: 2px;
+  font-size: .62rem;
+  opacity: .65;
+  pointer-events: none;
+}
+
+/* Fog: hide enemy pieces */
+.cell.fog-hidden {
+  background-image: linear-gradient(135deg, rgba(30,41,59,.75) 0%, rgba(15,23,42,.65) 100%);
+  box-shadow: inset 0 0 16px rgba(15,23,42,.6);
+}
+.cell.fog-hidden .piece {
+  display: none;
+}
+
+/* Volcano hit flash */
+@keyframes volcanoFlash {
+  0%   { background-color: rgba(239,68,68,.7); }
+  100% { background-color: transparent; }
+}
+.cell.volcano-hit {
+  animation: volcanoFlash .5s ease-out forwards;
+}
+
+/* Repair ATK-up floating label */
+@keyframes repairFloat {
+  0%   { opacity: 1; transform: translateY(0); }
+  80%  { opacity: .9; }
+  100% { opacity: 0; transform: translateY(-28px); }
+}
+.repair-fx {
+  position: absolute;
+  top: 25%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: .72rem;
+  font-weight: 700;
+  color: #34d399;
+  text-shadow: 0 1px 4px rgba(0,0,0,.7);
+  pointer-events: none;
+  animation: repairFloat .9s ease-out forwards;
+  z-index: 20;
+}
+
+/* ── Map Selection Overlay ────────────────────────────────────────────── */
+#map-select-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.72);
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
+}
+#map-select-overlay.show { display: flex; }
+
+#map-select-box {
+  background: var(--panel-bg);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 12px;
+  padding: 2rem 2.2rem 2.2rem;
+  width: min(440px, 92vw);
+  text-align: center;
+  box-shadow: 0 8px 40px rgba(0,0,0,.6);
+}
+#map-select-box h2 {
+  margin: 0 0 .3rem;
+  font-size: 1.25rem;
+  color: var(--text);
+  letter-spacing: .04em;
+}
+
+#ms-options {
+  display: flex;
+  flex-direction: column;
+  gap: .7rem;
+  margin-top: 1.2rem;
+}
+
+.ms-btn {
+  display: flex;
+  align-items: center;
+  gap: .9rem;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 8px;
+  padding: .7rem 1rem;
+  cursor: pointer;
+  color: var(--text);
+  text-align: left;
+  transition: background .15s, border-color .15s;
+}
+.ms-btn strong {
+  display: block;
+  font-size: .95rem;
+  color: var(--text);
+  margin-bottom: .15rem;
+}
+.ms-btn span {
+  font-size: .78rem;
+  color: var(--text-muted);
+}
+.ms-btn:hover {
+  background: rgba(168,85,247,.12);
+  border-color: rgba(168,85,247,.5);
+}
+.ms-icon {
+  font-size: 1.8rem;
+  flex-shrink: 0;
+  line-height: 1;
 }
 
 /* ── Responsive ───────────────────────────────────────────────────────── */

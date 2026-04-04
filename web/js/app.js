@@ -47,6 +47,47 @@ const KING_ABILITY_DEFS = [
   { id:"epitath",       name:"Epitath",          desc:"Reverse the opponent's last move" },
 ];
 
+// ── Map definitions ───────────────────────────────────────────────────────────
+const MAP_DEFS = [
+  { id:"standard", name:"Standard",  icon:"⚔",  desc:"Classic board — no environmental hazards." },
+  { id:"hybrid",   name:"Hybrid",    icon:"🌋",  desc:"Volcano, water tiles, and a repair square scattered across the centre rows." },
+  { id:"water",    name:"Flood",     icon:"🌊",  desc:"Three water tiles flood the centre — plan your routes carefully." },
+  { id:"foggy",    name:"Foggy",     icon:"🌫",  desc:"Rows 1–2 and 7–8 are shrouded in fog. You cannot see enemy pieces unless you have a scout nearby." },
+];
+
+function shuffleArray(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function generateMapTiles(mapId) {
+  const tiles = {};
+  if (mapId === "standard") return tiles;
+
+  if (mapId === "hybrid") {
+    // Pick 5 distinct squares from rows 3–4 (chess rows 4–5)
+    const pool = [];
+    for (const r of [3,4]) for (let c=0;c<8;c++) pool.push([r,c]);
+    shuffleArray(pool);
+    tiles[`${pool[0][0]},${pool[0][1]}`] = "repair";
+    tiles[`${pool[1][0]},${pool[1][1]}`] = "water";
+    tiles[`${pool[2][0]},${pool[2][1]}`] = "water";
+    tiles[`${pool[3][0]},${pool[3][1]}`] = "volcano";
+    tiles[`${pool[4][0]},${pool[4][1]}`] = "volcano";
+  } else if (mapId === "water") {
+    const pool = [];
+    for (const r of [3,4]) for (let c=0;c<8;c++) pool.push([r,c]);
+    shuffleArray(pool);
+    for (let i=0;i<3;i++) tiles[`${pool[i][0]},${pool[i][1]}`] = "water";
+  } else if (mapId === "foggy") {
+    for (const r of [0,1,6,7]) for (let c=0;c<8;c++) tiles[`${r},${c}`] = "fog";
+  }
+  return tiles;
+}
+
 // ── Piece factory ─────────────────────────────────────────────────────────────
 function createPiece(team, type) {
   switch(type) {
@@ -83,6 +124,7 @@ function slide(piece, pos, board, dirs) {
   for (const [dr, dc] of dirs) {
     let [r, c] = [pos[0]+dr, pos[1]+dc];
     while (r>=0 && r<8 && c>=0 && c<8) {
+      if (board.isWater(r, c)) break; // water blocks movement and line of sight
       const t = board.get(r, c);
       if (t === null)            { moves.push([r, c]); }
       else if (piece.isEnemy(t)) { moves.push([r, c]); break; }
@@ -100,14 +142,14 @@ class Pawn extends Piece {
     const dir = this.team === Team.WHITE ? -1 : 1;
     const startRow = this.team === Team.WHITE ? 6 : 1;
     const fwd = [row+dir, col];
-    if (fwd[0]>=0 && fwd[0]<8 && board.get(...fwd)===null) {
+    if (fwd[0]>=0 && fwd[0]<8 && board.get(...fwd)===null && !board.isWater(...fwd)) {
       moves.push(fwd);
       const fwd2 = [row+2*dir, col];
-      if (!this.hasMoved && row===startRow && board.get(...fwd2)===null) moves.push(fwd2);
+      if (!this.hasMoved && row===startRow && board.get(...fwd2)===null && !board.isWater(...fwd2)) moves.push(fwd2);
     }
     for (const dc of [-1,1]) {
       const cap = [row+dir, col+dc];
-      if (cap[0]>=0&&cap[0]<8&&cap[1]>=0&&cap[1]<8 && this.isEnemy(board.get(...cap))) moves.push(cap);
+      if (cap[0]>=0&&cap[0]<8&&cap[1]>=0&&cap[1]<8 && !board.isWater(...cap) && this.isEnemy(board.get(...cap))) moves.push(cap);
     }
     return moves;
   }
@@ -130,7 +172,7 @@ class King   extends Piece {
     for(const dr of[-1,0,1]) for(const dc of[-1,0,1]){
       if(dr===0&&dc===0) continue;
       const [r,c]=[row+dr,col+dc];
-      if(r>=0&&r<8&&c>=0&&c<8&&(board.get(r,c)===null||this.isEnemy(board.get(r,c)))) moves.push([r,c]);
+      if(r>=0&&r<8&&c>=0&&c<8&&!board.isWater(r,c)&&(board.get(r,c)===null||this.isEnemy(board.get(r,c)))) moves.push([r,c]);
     }
     return moves;
   }
@@ -140,8 +182,11 @@ class King   extends Piece {
 class Board {
   constructor() {
     this._grid = Array.from({length:8}, ()=>Array(8).fill(null));
+    this.envTiles = {};   // "r,c" → "volcano"|"water"|"repair"|"fog"
     this._setup();
   }
+  getEnv(r,c)  { return this.envTiles[`${r},${c}`] || null; }
+  isWater(r,c) { return this.envTiles[`${r},${c}`] === "water"; }
   _setup() {
     const back = [Rook,Knight,Bishop,Queen,King,Bishop,Knight,Rook];
     for (let c=0;c<8;c++) {
@@ -273,13 +318,37 @@ class Game {
     this.lastPawnBuff= [];
     this.lastHeal    = [];
     this.zaWardouSkip= { [Team.WHITE]:0, [Team.BLACK]:0 };
-    this.lastSkipped = null;           // team whose turn was just skipped (Za Wardou)
-    // Per-team snapshots for Epitath (saved before that team's last move)
+    this.lastSkipped = null;
     this.epitathSnapshot = { [Team.WHITE]:null, [Team.BLACK]:null };
-    this._pendingSnap    = null;       // snapshot taken at start of move()
-    // King abilities
+    this._pendingSnap    = null;
     this.kingAbilityChosen = { [Team.WHITE]:null, [Team.BLACK]:null };
     this.kingAbilityUsed   = { [Team.WHITE]:false, [Team.BLACK]:false };
+    // Environment
+    this.lastEnvEffects = [];
+    this.winner = null;
+  }
+
+  setupMap(mapId) {
+    this.board.envTiles = generateMapTiles(mapId);
+  }
+
+  applyEnvEffects() {
+    this.lastEnvEffects = [];
+    for (let r=0;r<8;r++) for (let c=0;c<8;c++) {
+      const env = this.board.getEnv(r, c);
+      if (!env || env === "water" || env === "fog") continue;
+      const piece = this.board.get(r, c);
+      if (!piece) continue;
+      if (env === "volcano") {
+        piece.hp -= 10;
+        const killed = piece.hp <= 0;
+        this.lastEnvEffects.push({ pos:[r,c], type:"volcano", amount:10, killed, piece });
+        if (killed) this.board.set(r, c, null);
+      } else if (env === "repair") {
+        piece.attack += 5;
+        this.lastEnvEffects.push({ pos:[r,c], type:"repair", amount:5, piece });
+      }
+    }
   }
 
   // ── Standard move ──────────────────────────────────────────────────────────
@@ -342,6 +411,8 @@ class Game {
     this.lastPawnBuff = applyPawnStrengthInNumbers(this.board);
     this.epitathSnapshot[this._knightChainTeam] = this._knightChainSnap;
     this._knightChainSnap = null;
+    this.applyEnvEffects();
+    if (this._checkKingDeath()) return;
     this._switchTurn();
     this._updateStatus();
   }
@@ -425,9 +496,20 @@ class Game {
     return { pos:behind, ...result };
   }
 
+  _checkKingDeath() {
+    const wk = this.board.findKing(Team.WHITE);
+    const bk = this.board.findKing(Team.BLACK);
+    if (!wk && !bk) { this.status = "stalemate"; return true; }
+    if (!wk) { this.status = "checkmate"; this.winner = Team.BLACK; return true; }
+    if (!bk) { this.status = "checkmate"; this.winner = Team.WHITE; return true; }
+    return false;
+  }
+
   _finishTurn(teamThatMoved, snapBefore) {
     this.epitathSnapshot[teamThatMoved] = snapBefore;
     this.lastPawnBuff = applyPawnStrengthInNumbers(this.board);
+    this.applyEnvEffects();
+    if (this._checkKingDeath()) return;
     this._switchTurn();
     this._updateStatus();
   }
@@ -477,7 +559,7 @@ class Game {
         const p = this.board._grid[r][c];
         grid[r][c] = p ? {
           type:p.type, team:p.team, hasMoved:p.hasMoved,
-          hp:p.hp, maxHp:p.maxHp, stunned:p.stunned, stunTurns:p.stunTurns
+          hp:p.hp, maxHp:p.maxHp, attack:p.attack, stunned:p.stunned, stunTurns:p.stunTurns
         } : null;
       }
     }
@@ -492,6 +574,7 @@ class Game {
         piece.hasMoved  = s.hasMoved;
         piece.hp        = s.hp;
         piece.maxHp     = s.maxHp;
+        piece.attack    = s.attack;
         piece.stunned   = s.stunned;
         piece.stunTurns = s.stunTurns;
         this.board._grid[r][c] = piece;
@@ -704,6 +787,33 @@ function animateEpitath() {
   el.addEventListener("animationend", () => el.remove(), { once:true });
 }
 
+// ── Env tile rendering ────────────────────────────────────────────────────────
+function renderEnvTiles() {
+  for (let r=0;r<8;r++) for (let c=0;c<8;c++) {
+    const cell = getCell(r, c);
+    const env  = game.board.getEnv(r, c);
+    if (env) cell.dataset.env = env;
+    else     delete cell.dataset.env;
+  }
+}
+
+function showEnvEffects(effects) {
+  for (const fx of effects) {
+    const cell = getCell(...fx.pos);
+    if (fx.type === "volcano") {
+      spawnDamageNumber(cell, fx.amount, !fx.killed);
+      cell.classList.add("volcano-hit");
+      cell.addEventListener("animationend", () => cell.classList.remove("volcano-hit"), { once:true });
+    } else if (fx.type === "repair") {
+      const el = document.createElement("div");
+      el.className = "repair-fx";
+      el.textContent = `+${fx.amount} ATK`;
+      cell.appendChild(el);
+      el.addEventListener("animationend", () => el.remove(), { once:true });
+    }
+  }
+}
+
 // ── Render ────────────────────────────────────────────────────────────────────
 function render() {
   const boardWrap = document.querySelector(".board-wrap");
@@ -713,11 +823,18 @@ function render() {
   for (let r=0;r<8;r++) for (let c=0;c<8;c++) {
     const cell  = getCell(r,c);
     const piece = game.board.get(r,c);
+    const env   = game.board.getEnv(r,c);
     cell.classList.remove(
       "selected","legal-move","legal-capture","in-check","last-move",
-      "just-hit","stunned-piece","chain-target","ability-target","ability-swap"
+      "just-hit","stunned-piece","chain-target","ability-target","ability-swap","fog-hidden"
     );
     cell.innerHTML = "";
+
+    // Fog: hide enemy pieces from the active player
+    if (env === "fog" && (!piece || piece.team !== game.turn)) {
+      cell.classList.add("fog-hidden");
+      continue; // don't render the (hidden) piece
+    }
 
     if (piece) {
       const span = document.createElement("span");
@@ -739,8 +856,11 @@ function render() {
   if (selected) {
     getCell(...selected).classList.add("selected");
     for (const [r,c] of legalDsts) {
-      const cell = getCell(r,c);
-      game.board.get(r,c) ? cell.classList.add("legal-capture") : cell.classList.add("legal-move");
+      const cell    = getCell(r,c);
+      const tgt     = game.board.get(r,c);
+      const fogHide = game.board.getEnv(r,c) === "fog" && tgt && tgt.team !== game.turn;
+      // Don't show capture ring if enemy piece is hidden in fog
+      tgt && !fogHide ? cell.classList.add("legal-capture") : cell.classList.add("legal-move");
     }
   }
 
@@ -894,7 +1014,7 @@ function updateAbilityButton() {
 
 function showOverlay() {
   if (game.status === "checkmate") {
-    const winner = game.turn===Team.WHITE?Team.BLACK:Team.WHITE;
+    const winner = game.winner ?? (game.turn===Team.WHITE ? Team.BLACK : Team.WHITE);
     overlayH2.textContent = "Checkmate!";
     overlayP.textContent  = `${winner} wins the crown.`;
   } else {
@@ -1036,7 +1156,10 @@ function endKnightChain() {
   const origin = knightChain.origin;
   lastMove = { src: origin, dst: knightChain.attackPos, survived: true };
   game.finishKnightTurn();
+  const envEffects = game.lastEnvEffects.slice();
+  for (const fx of envEffects) if (fx.killed) killedPieces[fx.piece.team].push(fx.piece);
   if (game.lastPawnBuff.length > 0) setTimeout(() => showPawnBuff(game.lastPawnBuff), 50);
+  if (envEffects.length > 0)        setTimeout(() => showEnvEffects(envEffects), 180);
   knightChain = null;
   knightChainTargets = [];
   render();
@@ -1180,7 +1303,9 @@ function onCellClick(e) {
 
       // Normal move
       game.move(src, dst);
-      const combat = game.lastCombat;
+      const combat     = game.lastCombat;
+      const envEffects = game.lastEnvEffects.slice();
+      for (const fx of envEffects) if (fx.killed) killedPieces[fx.piece.team].push(fx.piece);
       if (targetPiece && combat && !combat.defenderSurvived) killedPieces[movingPiece.team].push(targetPiece);
       lastMove = { src, dst, survived: combat?.defenderSurvived ?? false };
       logMove(src, dst, movingPiece, combat);
@@ -1189,9 +1314,9 @@ function onCellClick(e) {
       if (targetPiece && combat) {
         animateAttack(src, dst, movingPiece, targetPiece, combat, () => {
           if (game.lastPawnBuff.length > 0) setTimeout(() => showPawnBuff(game.lastPawnBuff), 80);
+          if (envEffects.length > 0)        setTimeout(() => showEnvEffects(envEffects), 220);
           render();
           requestAnimationFrame(() => {
-
             if (combat.stunApplied) animateStunApplied(getCell(...dst));
             if (combat.bonusDamage) animateHpTax(getCell(...dst), combat.bonusDamage);
             if (combat.pierce)      animatePierceFx(getCell(...combat.pierce.pos), combat.pierce);
@@ -1200,6 +1325,7 @@ function onCellClick(e) {
         return;
       }
       if (game.lastPawnBuff.length > 0) setTimeout(() => showPawnBuff(game.lastPawnBuff), 60);
+      if (envEffects.length > 0)        setTimeout(() => showEnvEffects(envEffects), 150);
     } else {
       const piece = game.board.get(row,col);
       if (piece?.team === game.turn) { selected=[row,col]; legalDsts=game.legalMovesFor(selected); }
@@ -1224,7 +1350,10 @@ abilityBtn.addEventListener("click", () => {
     if (healed !== null) {
       logAbility(pos, piece, "I'm Pope-ing Off");
       selected = null; legalDsts = [];
+      const envEffects = game.lastEnvEffects.slice();
+      for (const fx of envEffects) if (fx.killed) killedPieces[fx.piece.team].push(fx.piece);
       if (game.lastPawnBuff.length > 0) setTimeout(() => showPawnBuff(game.lastPawnBuff), 400);
+      if (envEffects.length > 0)        setTimeout(() => showEnvEffects(envEffects), 250);
       render();
       requestAnimationFrame(() => animateBishopAbility(getCell(...pos), healed));
     }
@@ -1295,6 +1424,27 @@ function showKingSelection(team) {
   });
 }
 
+// ── Map selection ─────────────────────────────────────────────────────────────
+function showMapSelection() {
+  const overlay = document.getElementById("map-select-overlay");
+  const options = document.getElementById("ms-options");
+  overlay.classList.add("show");
+  options.innerHTML = MAP_DEFS.map(m =>
+    `<button class="ms-btn" data-id="${m.id}">
+       <span class="ms-icon">${m.icon}</span>
+       <div><strong>${m.name}</strong><span>${m.desc}</span></div>
+     </button>`
+  ).join("");
+  options.querySelectorAll(".ms-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      game.setupMap(btn.dataset.id);
+      renderEnvTiles();
+      overlay.classList.remove("show");
+      showKingSelection(Team.WHITE);
+    });
+  });
+}
+
 // ── New game ──────────────────────────────────────────────────────────────────
 function newGame() {
   game            = new Game();
@@ -1318,7 +1468,7 @@ function newGame() {
   abilityBtn.style.display   = "none";
   chainSkipBtn.style.display = "none";
   render();
-  showKingSelection(Team.WHITE);
+  showMapSelection();
 }
 
 document.getElementById("new-game-btn").addEventListener("click", newGame);
@@ -1330,4 +1480,4 @@ document.querySelector(".win-max").addEventListener("click", () => document.getE
 // ── Init ──────────────────────────────────────────────────────────────────────
 buildBoard();
 render();
-showKingSelection(Team.WHITE);
+showMapSelection();
