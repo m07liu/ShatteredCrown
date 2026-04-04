@@ -59,7 +59,7 @@ No installation needed — open `index.html` in any modern browser.
 
 ```bash
 # Clone the repo
-git clone https://github.com/irisxu/ShatteredCrown.git
+git clone https://github.com/AndrewLu-1/ShatteredCrown.git
 cd ShatteredCrown
 
 # Open in browser
