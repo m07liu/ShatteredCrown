@@ -262,6 +262,13 @@ function resolveAttack(attacker, defender) {
   return { damage, defenderSurvived, stunApplied, bonusDamage: bonusDmg };
 }
 
+// Returns true if this attack would reduce the defender's HP to 0 or below
+function wouldKill(attacker, defender) {
+  let dmg = attacker.attack;
+  if (attacker.type === PieceType.QUEEN) dmg += Math.floor(defender.hp * 0.10);
+  return Math.max(1, dmg) >= defender.hp;
+}
+
 // Bishop: heal friendly pieces in 3×3 area around pos (excluding self)
 function applyBishopHeal(board, bishopPos) {
   const bishop = board.get(...bishopPos);
@@ -583,6 +590,16 @@ class Game {
       }
     }
   }
+
+  // End the current player's turn without any move (used after a failed Last Stand challenge)
+  forfeitAttack() {
+    const snap = this._snapshotBoard();
+    this.lastCombat     = null;
+    this.lastPawnBuff   = [];
+    this.lastHeal       = [];
+    this.lastEnvEffects = [];
+    this._finishTurn(this.turn, snap);
+  }
 }
 
 // ── UI state ──────────────────────────────────────────────────────────────────
@@ -603,6 +620,9 @@ let knightChainTargets = [];
 // King ability targeting state
 let kingAbilityMode    = null;  // "higher_morale" | "dirty_deeds" | null
 let kingAbilityTargets = [];
+
+// Last Stand challenge cleanup handle
+let lastStandCleanup = null;
 
 // Pre-game setup
 let setupPhase = true;
@@ -1178,6 +1198,131 @@ function getFriendlyNonKingPositions() {
     .map(({ pos }) => pos);
 }
 
+// ── Last Stand challenge ──────────────────────────────────────────────────────
+function showLastStand(attacker, defender, onSuccess, onFail) {
+  const lsOverlay  = document.getElementById("last-stand-overlay");
+  const attackerEl = document.getElementById("ls-attacker");
+  const defenderEl = document.getElementById("ls-defender");
+  const lettersEl  = document.getElementById("ls-letters");
+  const timerFill  = document.getElementById("ls-timer-fill");
+  const resultEl   = document.getElementById("ls-result");
+  const hintEl     = document.getElementById("ls-hint");
+
+  // Piece symbols
+  attackerEl.textContent = SYMBOLS[attacker.team][attacker.type];
+  attackerEl.className   = `ls-piece-sym ${attacker.team === Team.WHITE ? "white" : "black"}`;
+  defenderEl.textContent = SYMBOLS[defender.team][defender.type];
+  defenderEl.className   = `ls-piece-sym ${defender.team === Team.WHITE ? "white" : "black"}`;
+
+  // Generate 5 random letters
+  const ALPHA   = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const letters = Array.from({length:5}, () => ALPHA[Math.floor(Math.random() * 26)]);
+  let typed = 0;
+
+  // Build letter boxes
+  lettersEl.innerHTML = "";
+  lettersEl.className = "";
+  const letterEls = letters.map(ch => {
+    const el = document.createElement("span");
+    el.className   = "ls-letter";
+    el.textContent = ch;
+    lettersEl.appendChild(el);
+    return el;
+  });
+
+  resultEl.textContent = "";
+  hintEl.textContent   = "Type the letters to capture!";
+  hintEl.style.color   = "";
+
+  // Reset timer bar without transition so it snaps to full
+  timerFill.style.transition = "none";
+  timerFill.style.width      = "100%";
+  timerFill.style.background = "var(--accent)";
+
+  // Show overlay
+  lsOverlay.classList.add("show");
+
+  // Trigger rush-in animation (force reflow so it replays each time)
+  void attackerEl.offsetWidth;
+  attackerEl.classList.add("rush-left");
+  defenderEl.classList.add("rush-right");
+
+  // After rush completes, switch to the strain animation
+  const strainTimer = setTimeout(() => {
+    attackerEl.classList.remove("rush-left");
+    attackerEl.classList.add("strain-left");
+    defenderEl.classList.remove("rush-right");
+    defenderEl.classList.add("strain-right");
+  }, 580);
+
+  // Start the 7-second depleting timer bar (two rAF frames to ensure the
+  // transition property reset took effect before we start depleting)
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    timerFill.style.transition = "width 7s linear";
+    timerFill.style.width      = "0%";
+  }));
+
+  let resolved = false;
+
+  function cleanup() {
+    clearTimeout(strainTimer);
+    clearTimeout(failTimer);
+    document.removeEventListener("keydown", onKeyDown);
+    lastStandCleanup = null;
+  }
+
+  function resolve(success) {
+    if (resolved) return;
+    resolved = true;
+    cleanup();
+
+    if (success) {
+      resultEl.style.color = "#4caf50";
+      resultEl.textContent = "CAPTURED!";
+      setTimeout(() => {
+        lsOverlay.classList.remove("show");
+        resultEl.textContent = "";
+        onSuccess();
+      }, 320);
+    } else {
+      timerFill.style.transition = "none";
+      timerFill.style.width      = "0%";
+      hintEl.textContent         = "";
+      resultEl.style.color       = "#e04040";
+      resultEl.textContent       = "FAILED — Turn forfeited!";
+      setTimeout(() => {
+        lsOverlay.classList.remove("show");
+        resultEl.textContent = "";
+        onFail();
+      }, 1100);
+    }
+  }
+
+  const failTimer = setTimeout(() => resolve(false), 7000);
+
+  function onKeyDown(e) {
+    if (resolved) return;
+    const ch = e.key.toUpperCase();
+    if (ch.length !== 1 || !/[A-Z]/.test(ch)) return;
+
+    if (ch === letters[typed]) {
+      letterEls[typed].classList.add("correct");
+      typed++;
+      if (typed === 5) resolve(true);
+    } else {
+      // Wrong key — reset progress and shake
+      for (const el of letterEls) el.classList.remove("correct");
+      typed = 0;
+      lettersEl.classList.remove("shake");
+      void lettersEl.offsetWidth; // restart animation
+      lettersEl.classList.add("shake");
+    }
+  }
+
+  document.addEventListener("keydown", onKeyDown);
+  lastStandCleanup = () => { cleanup(); lsOverlay.classList.remove("show"); resolved = true; };
+}
+
 // ── Click handler ─────────────────────────────────────────────────────────────
 function onCellClick(e) {
   if (game.status !== "ongoing" || isAnimating || setupPhase) return;
@@ -1301,7 +1446,50 @@ function onCellClick(e) {
         return;
       }
 
-      // Normal move
+      // Normal move — intercept lethal attacks for the Last Stand challenge
+      if (targetPiece && wouldKill(movingPiece, targetPiece)) {
+        selected = null; legalDsts = [];
+        isAnimating = true;
+        render(); // clear selection highlights before overlay appears
+
+        showLastStand(movingPiece, targetPiece,
+          () => {
+            // ── Success: player typed the letters — execute the capture ──
+            isAnimating = false;
+            game.move(src, dst);
+            const combat     = game.lastCombat;
+            const envEffects = game.lastEnvEffects.slice();
+            for (const fx of envEffects) if (fx.killed) killedPieces[fx.piece.team].push(fx.piece);
+            killedPieces[movingPiece.team].push(targetPiece);
+            lastMove = { src, dst, survived: false };
+            logMove(src, dst, movingPiece, combat);
+            animateAttack(src, dst, movingPiece, targetPiece, combat, () => {
+              if (game.lastPawnBuff.length > 0) setTimeout(() => showPawnBuff(game.lastPawnBuff), 80);
+              if (envEffects.length > 0)        setTimeout(() => showEnvEffects(envEffects), 220);
+              render();
+              requestAnimationFrame(() => {
+                if (combat.stunApplied) animateStunApplied(getCell(...dst));
+                if (combat.bonusDamage) animateHpTax(getCell(...dst), combat.bonusDamage);
+                if (combat.pierce)      animatePierceFx(getCell(...combat.pierce.pos), combat.pierce);
+              });
+            });
+          },
+          () => {
+            // ── Fail: player ran out of time — forfeit attack, end turn ──
+            isAnimating = false;
+            game.forfeitAttack();
+            const envEffects = game.lastEnvEffects.slice();
+            for (const fx of envEffects) if (fx.killed) killedPieces[fx.piece.team].push(fx.piece);
+            if (game.lastPawnBuff.length > 0) setTimeout(() => showPawnBuff(game.lastPawnBuff), 80);
+            if (envEffects.length > 0)        setTimeout(() => showEnvEffects(envEffects), 220);
+            selected = null; legalDsts = [];
+            render();
+          }
+        );
+        return;
+      }
+
+      // Normal (non-lethal) move
       game.move(src, dst);
       const combat     = game.lastCombat;
       const envEffects = game.lastEnvEffects.slice();
@@ -1447,6 +1635,7 @@ function showMapSelection() {
 
 // ── New game ──────────────────────────────────────────────────────────────────
 function newGame() {
+  if (lastStandCleanup) { lastStandCleanup(); lastStandCleanup = null; }
   game            = new Game();
   selected        = null;
   legalDsts       = [];
