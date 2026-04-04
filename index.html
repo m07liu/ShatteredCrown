@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ShatteredCrown — Battle Chess</title>
+  <link rel="stylesheet" href="web/css/style.css" />
+</head>
+<body>
+
+  <header>
+    <h1>ShatteredCrown</h1>
+    <p>Battle Chess &mdash; where pieces fight for the crown</p>
+  </header>
+
+  <div class="game-wrapper">
+
+    <!-- Board -->
+    <div class="board-wrap">
+      <div class="file-labels">
+        <span></span>
+        <span>a</span><span>b</span><span>c</span><span>d</span>
+        <span>e</span><span>f</span><span>g</span><span>h</span>
+      </div>
+      <div class="rank-board">
+        <div class="rank-labels">
+          <span>8</span><span>7</span><span>6</span><span>5</span>
+          <span>4</span><span>3</span><span>2</span><span>1</span>
+        </div>
+        <div id="board"></div>
+      </div>
+    </div>
+
+    <!-- Side panel -->
+    <aside class="panel">
+      <h2>STATUS</h2>
+
+      <div id="turn-indicator">
+        <div id="turn-dot" class="white"></div>
+        <span id="turn-label">White's turn</span>
+      </div>
+
+      <div id="status-banner"></div>
+
+      <button id="new-game-btn">New Game</button>
+
+      <h2>CAPTURED</h2>
+      <div class="captured-row">Black lost: <span id="cap-white">—</span></div>
+      <div class="captured-row">White lost: <span id="cap-black">—</span></div>
+
+      <h2>MOVE LOG</h2>
+      <div id="move-log"></div>
+    </aside>
+
+  </div>
+
+  <!-- Game-over overlay -->
+  <div id="overlay">
+    <div id="overlay-box">
+      <h2 id="overlay-title">Checkmate!</h2>
+      <p id="overlay-msg">White wins the crown.</p>
+      <button id="overlay-btn">Play Again</button>
+    </div>
+  </div>
+
+  <script type="module" src="web/js/ui.js"></script>
+</body>
+</html>
