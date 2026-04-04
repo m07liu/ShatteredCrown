@@ -1139,6 +1139,8 @@ header p {
   z-index: 20;
 }
 
+.repair-heal-fx { color: #86efac; }
+
 /* ── Map Selection Sidebar ────────────────────────────────────────────── */
 .map-panel {
   width: 120px;

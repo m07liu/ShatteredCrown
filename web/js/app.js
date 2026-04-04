@@ -352,8 +352,16 @@ class Game {
         this.lastEnvEffects.push({ pos:[r,c], type:"volcano", amount:10, killed, piece });
         if (killed) this.board.set(r, c, null);
       } else if (env === "repair") {
-        piece.attack += 5;
-        this.lastEnvEffects.push({ pos:[r,c], type:"repair", amount:5, piece });
+        if (!piece.repairedATK) {
+          piece.attack += 3;
+          piece.repairedATK = true;
+          this.lastEnvEffects.push({ pos:[r,c], type:"repair-atk", amount:3, piece });
+        }
+        const healAmt = Math.min(2, piece.maxHp - piece.hp);
+        if (healAmt > 0) {
+          piece.hp += healAmt;
+          this.lastEnvEffects.push({ pos:[r,c], type:"repair-heal", amount:healAmt, piece });
+        }
       }
     }
   }
@@ -566,7 +574,7 @@ class Game {
         const p = this.board._grid[r][c];
         grid[r][c] = p ? {
           type:p.type, team:p.team, hasMoved:p.hasMoved,
-          hp:p.hp, maxHp:p.maxHp, attack:p.attack, stunned:p.stunned, stunTurns:p.stunTurns
+          hp:p.hp, maxHp:p.maxHp, attack:p.attack, stunned:p.stunned, stunTurns:p.stunTurns, repairedATK:p.repairedATK
         } : null;
       }
     }
@@ -584,6 +592,7 @@ class Game {
         piece.attack    = s.attack;
         piece.stunned   = s.stunned;
         piece.stunTurns = s.stunTurns;
+        piece.repairedATK = s.repairedATK;
         this.board._grid[r][c] = piece;
       } else {
         this.board._grid[r][c] = null;
@@ -827,10 +836,16 @@ function showEnvEffects(effects) {
       spawnDamageNumber(cell, fx.amount, !fx.killed);
       cell.classList.add("volcano-hit");
       cell.addEventListener("animationend", () => cell.classList.remove("volcano-hit"), { once:true });
-    } else if (fx.type === "repair") {
+    } else if (fx.type === "repair-atk") {
       const el = document.createElement("div");
       el.className = "repair-fx";
       el.textContent = `+${fx.amount} ATK`;
+      cell.appendChild(el);
+      el.addEventListener("animationend", () => el.remove(), { once:true });
+    } else if (fx.type === "repair-heal") {
+      const el = document.createElement("div");
+      el.className = "repair-fx repair-heal-fx";
+      el.textContent = `+${fx.amount} HP`;
       cell.appendChild(el);
       el.addEventListener("animationend", () => el.remove(), { once:true });
     }
@@ -1374,6 +1389,43 @@ function onCellClick(e) {
       const dst     = [row, col];
       const knight  = game.board.get(...origin);
       const target  = game.board.get(...dst);
+
+      if (wouldKill(knight, target)) {
+        // Last Stand for a lethal chain hit
+        isAnimating = true;
+        render();
+        showLastStand(knight, target,
+          () => {
+            isAnimating = false;
+            const result = game.knightChainAttack(origin, dst);
+            if (result && !result.defenderSurvived) killedPieces[knight.team].push(target);
+            knightChain.chainsLeft--;
+            knightChain.attackPos = dst;
+            const nextTargets = knightChain.chainsLeft > 0 ? findKnightChainTargets(origin, dst) : [];
+            knightChainTargets = nextTargets;
+            if (result) {
+              animateAttack(origin, dst, knight, target, result, () => {
+                if (knightChainTargets.length === 0 || knightChain.chainsLeft <= 0) endKnightChain();
+                else render();
+                requestAnimationFrame(() => {
+                  if (result.stunApplied) animateStunApplied(getCell(...dst));
+                  if (result.bonusDamage) animateHpTax(getCell(...dst), result.bonusDamage);
+                });
+              });
+            } else {
+              if (knightChainTargets.length === 0 || knightChain.chainsLeft <= 0) endKnightChain();
+              else render();
+            }
+          },
+          () => {
+            // Fail: end the chain
+            isAnimating = false;
+            endKnightChain();
+          }
+        );
+        return;
+      }
+
       const result  = game.knightChainAttack(origin, dst);
       if (result && !result.defenderSurvived) killedPieces[knight.team].push(target);
 
@@ -1391,7 +1443,6 @@ function onCellClick(e) {
             render();
           }
           requestAnimationFrame(() => {
-
             if (result.stunApplied) animateStunApplied(getCell(...dst));
             if (result.bonusDamage) animateHpTax(getCell(...dst), result.bonusDamage);
           });
@@ -1420,6 +1471,44 @@ function onCellClick(e) {
 
       // Knight attacking: use chain mode (always returns to origin)
       if (movingPiece.type === PieceType.KNIGHT && targetPiece !== null) {
+        if (wouldKill(movingPiece, targetPiece)) {
+          // Last Stand before committing the first chain attack
+          selected = null; legalDsts = [];
+          isAnimating = true;
+          render();
+          showLastStand(movingPiece, targetPiece,
+            () => {
+              isAnimating = false;
+              game.startKnightChain();
+              const result = game.knightChainAttack(src, dst);
+              if (result && !result.defenderSurvived) killedPieces[movingPiece.team].push(targetPiece);
+              logMove(src, dst, movingPiece, result);
+              const chainTargets = findKnightChainTargets(src, dst);
+              knightChain = { origin: src, attackPos: dst, chainsLeft: 2 };
+              knightChainTargets = chainTargets;
+              if (result) {
+                animateAttack(src, dst, movingPiece, targetPiece, result, () => {
+                  if (knightChainTargets.length === 0) endKnightChain();
+                  else render();
+                  requestAnimationFrame(() => {
+                    if (result.stunApplied) animateStunApplied(getCell(...dst));
+                    if (result.bonusDamage) animateHpTax(getCell(...dst), result.bonusDamage);
+                  });
+                });
+              } else {
+                if (knightChainTargets.length === 0) endKnightChain();
+                else render();
+              }
+            },
+            () => {
+              isAnimating = false;
+              game.forfeitAttack();
+              render();
+            }
+          );
+          return;
+        }
+
         game.startKnightChain();
         const result = game.knightChainAttack(src, dst);
         if (result && !result.defenderSurvived) killedPieces[movingPiece.team].push(targetPiece);
@@ -1437,7 +1526,7 @@ function onCellClick(e) {
             if (knightChainTargets.length === 0) endKnightChain();
             else render();
             requestAnimationFrame(() => {
-  
+
               if (result.stunApplied) animateStunApplied(getCell(...dst));
               if (result.bonusDamage) animateHpTax(getCell(...dst), result.bonusDamage);
             });
