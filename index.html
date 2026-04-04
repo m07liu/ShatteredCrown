@@ -8,6 +8,26 @@
 </head>
 <body>
 
+  <!-- Intro screen -->
+  <div id="intro-overlay">
+    <div class="intro-bg-symbols" aria-hidden="true">
+      <span style="top:6%;left:4%;font-size:9rem;--i:0">♚</span>
+      <span style="top:12%;right:6%;font-size:7rem;--i:1">♛</span>
+      <span style="bottom:8%;left:8%;font-size:8rem;--i:2">♜</span>
+      <span style="bottom:15%;right:4%;font-size:10rem;--i:3">♝</span>
+      <span style="top:45%;left:2%;font-size:6rem;--i:4">♞</span>
+      <span style="top:30%;right:2%;font-size:7.5rem;--i:5">♟</span>
+      <span style="top:70%;left:40%;font-size:8rem;--i:6">♔</span>
+    </div>
+    <div id="intro-content">
+      <div id="intro-crown">♛</div>
+      <h1 id="intro-title">ShatteredCrown</h1>
+      <p id="intro-subtitle">Battle Chess &mdash; where pieces fight for the crown</p>
+      <div id="intro-divider"><span>——</span> ⚔ <span>——</span></div>
+      <button id="intro-start-btn">⚔ &nbsp;Start Game</button>
+    </div>
+  </div>
+
   <header>
     <h1>ShatteredCrown</h1>
     <p>Battle Chess &mdash; where pieces fight for the crown</p>
@@ -15,6 +35,12 @@
   </header>
 
   <div class="game-wrapper">
+
+    <!-- Map selection sidebar -->
+    <aside class="map-panel">
+      <h2>MAP</h2>
+      <div id="map-options"></div>
+    </aside>
 
     <!-- Board -->
     <div class="board-wrap">
@@ -72,15 +98,6 @@
       <h2 id="overlay-title">Checkmate!</h2>
       <p id="overlay-msg">White wins the crown.</p>
       <button id="overlay-btn">Play Again</button>
-    </div>
-  </div>
-
-  <!-- Map selection overlay (pre-game) -->
-  <div id="map-select-overlay">
-    <div id="map-select-box">
-      <h2>Choose Your Battlefield</h2>
-      <p class="ks-subtitle">Select the map for this match.</p>
-      <div id="ms-options"></div>
     </div>
   </div>
 
@@ -180,6 +197,46 @@
               <strong>Epitath</strong>
               <p>Reverse the opponent's last move — the board reverts to before they moved.</p>
             </div>
+          </div>
+        </div>
+
+        <div class="help-section">
+          <h3>Environment Tiles</h3>
+          <p>Maps like <em>Hybrid</em>, <em>Flood</em>, and <em>Foggy</em> scatter special tiles across the board. Switching maps resets the match.</p>
+          <div class="help-env-grid">
+
+            <div class="help-env-tile">
+              <div class="env-demo-cell dark" data-env="volcano"></div>
+              <div class="help-env-text">
+                <strong>🔥 Volcano</strong>
+                <p>Deals <strong>10 damage</strong> to any piece standing on it at end of turn. The lava does not discriminate.</p>
+              </div>
+            </div>
+
+            <div class="help-env-tile">
+              <div class="env-demo-cell dark" data-env="water"></div>
+              <div class="help-env-text">
+                <strong>🌊 Water</strong>
+                <p><strong>Impassable.</strong> Pieces and sliding line-of-sight (Rook, Bishop, Queen) cannot cross water tiles.</p>
+              </div>
+            </div>
+
+            <div class="help-env-tile">
+              <div class="env-demo-cell light" data-env="repair"></div>
+              <div class="help-env-text">
+                <strong>⚙ Repair</strong>
+                <p>Permanently grants <strong>+5 Attack</strong> to any piece that steps on it. One-time buff per visit.</p>
+              </div>
+            </div>
+
+            <div class="help-env-tile">
+              <div class="env-demo-cell dark" data-env="fog"></div>
+              <div class="help-env-text">
+                <strong>🌫 Fog</strong>
+                <p>Enemy pieces hidden in fog are <strong>invisible</strong> unless you have a friendly piece in an adjacent square.</p>
+              </div>
+            </div>
+
           </div>
         </div>
 

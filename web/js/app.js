@@ -624,6 +624,9 @@ let kingAbilityTargets = [];
 // Last Stand challenge cleanup handle
 let lastStandCleanup = null;
 
+// Currently selected map
+let currentMapId = "standard";
+
 // Pre-game setup
 let setupPhase = true;
 
@@ -1612,31 +1615,87 @@ function showKingSelection(team) {
   });
 }
 
-// ── Map selection ─────────────────────────────────────────────────────────────
-function showMapSelection() {
-  const overlay = document.getElementById("map-select-overlay");
-  const options = document.getElementById("ms-options");
-  overlay.classList.add("show");
-  options.innerHTML = MAP_DEFS.map(m =>
-    `<button class="ms-btn" data-id="${m.id}">
-       <span class="ms-icon">${m.icon}</span>
-       <div><strong>${m.name}</strong><span>${m.desc}</span></div>
-     </button>`
-  ).join("");
-  options.querySelectorAll(".ms-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      game.setupMap(btn.dataset.id);
-      renderEnvTiles();
-      overlay.classList.remove("show");
-      showKingSelection(Team.WHITE);
-    });
+// ── Map selection sidebar ─────────────────────────────────────────────────────
+function initMapSidebar() {
+  const container = document.getElementById("map-options");
+  container.innerHTML = "";
+  for (const m of MAP_DEFS) {
+    const btn = document.createElement("button");
+    btn.className = "map-opt-btn" + (m.id === currentMapId ? " active" : "");
+    btn.dataset.mapId = m.id;
+    btn.title = m.desc;
+    btn.innerHTML = `<span class="mo-icon">${m.icon}</span><span class="mo-name">${m.name}</span>`;
+    btn.addEventListener("click", () => selectMap(m.id));
+    container.appendChild(btn);
+  }
+}
+
+function selectMap(id) {
+  currentMapId = id;
+  document.querySelectorAll(".map-opt-btn").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.mapId === id);
   });
+  newGame(); // full board reset + king selection
+}
+
+// ── Board ambient effects by map ──────────────────────────────────────────────
+function updateBoardAmbient(mapId) {
+  const boardWrap = document.querySelector(".board-wrap");
+  boardWrap.dataset.map = mapId || "standard";
+
+  // Remove old particles
+  boardWrap.querySelectorAll(".board-particle").forEach(el => el.remove());
+
+  if (mapId === "hybrid") {
+    // Floating lava embers rising around the board
+    for (let i = 0; i < 14; i++) {
+      const el = document.createElement("div");
+      el.className = "board-particle ember";
+      el.style.cssText = [
+        `left:${4 + Math.random() * 92}%`,
+        `bottom:${Math.random() * 12}%`,
+        `--dur:${1.6 + Math.random() * 2.8}s`,
+        `--delay:${Math.random() * 5}s`,
+        `--dx:${(Math.random() - .5) * 28}px`,
+      ].join(";");
+      boardWrap.appendChild(el);
+    }
+  } else if (mapId === "water") {
+    // Expanding ripple rings scattered over the board area
+    for (let i = 0; i < 7; i++) {
+      const el = document.createElement("div");
+      el.className = "board-particle ripple";
+      el.style.cssText = [
+        `left:${8 + Math.random() * 84}%`,
+        `top:${8 + Math.random() * 84}%`,
+        `--dur:${2 + Math.random() * 2.5}s`,
+        `--delay:${Math.random() * 5}s`,
+      ].join(";");
+      boardWrap.appendChild(el);
+    }
+  } else if (mapId === "foggy") {
+    // Slowly drifting fog blobs at board edges
+    for (let i = 0; i < 6; i++) {
+      const el = document.createElement("div");
+      el.className = "board-particle fog-wisp";
+      el.style.cssText = [
+        `top:${5 + Math.random() * 88}%`,
+        `left:${-8 + Math.random() * 18}%`,
+        `--w:${80 + Math.random() * 90}px`,
+        `--op:${(.06 + Math.random() * .12).toFixed(2)}`,
+        `--dur:${5 + Math.random() * 5}s`,
+        `--delay:${Math.random() * 6}s`,
+      ].join(";");
+      boardWrap.appendChild(el);
+    }
+  }
 }
 
 // ── New game ──────────────────────────────────────────────────────────────────
 function newGame() {
   if (lastStandCleanup) { lastStandCleanup(); lastStandCleanup = null; }
   game            = new Game();
+  game.setupMap(currentMapId);
   selected        = null;
   legalDsts       = [];
   lastMove        = null;
@@ -1656,8 +1715,10 @@ function newGame() {
   pieceInfo.innerHTML = `<span class="piece-info-hint">Click a piece to inspect</span>`;
   abilityBtn.style.display   = "none";
   chainSkipBtn.style.display = "none";
+  updateBoardAmbient(currentMapId);
+  renderEnvTiles();
   render();
-  showMapSelection();
+  showKingSelection(Team.WHITE);
 }
 
 document.getElementById("new-game-btn").addEventListener("click", newGame);
@@ -1666,7 +1727,19 @@ document.getElementById("help-btn").addEventListener("click", () => document.get
 document.querySelector(".win-close").addEventListener("click", () => document.getElementById("help-overlay").classList.remove("show"));
 document.querySelector(".win-max").addEventListener("click", () => document.getElementById("help-box").classList.toggle("maximized"));
 
+// ── Intro screen ──────────────────────────────────────────────────────────────
+document.getElementById("intro-start-btn").addEventListener("click", () => {
+  const intro = document.getElementById("intro-overlay");
+  intro.classList.add("fade-out");
+  setTimeout(() => {
+    intro.classList.add("hidden");
+    showKingSelection(Team.WHITE);
+  }, 900);
+});
+
 // ── Init ──────────────────────────────────────────────────────────────────────
 buildBoard();
+initMapSidebar();
+updateBoardAmbient("standard");
 render();
-showMapSelection();
+// King selection starts when user dismisses the intro screen
