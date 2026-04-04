@@ -222,10 +222,12 @@ class Game {
 }
 
 // ── UI ────────────────────────────────────────────────────────────────────────
-let game     = new Game();
-let selected = null;
-let legalDsts= [];
-let lastMove = null;
+let game        = new Game();
+let selected    = null;
+let legalDsts   = [];
+let lastMove    = null;
+let inspectedPos= null;   // last clicked piece pos (any team, any turn)
+let isAnimating = false;
 let killedPieces = { [Team.WHITE]:[], [Team.BLACK]:[] };
 let moveNumber=1, whiteNotation="";
 
@@ -318,19 +320,13 @@ function render() {
     if(kp) getCell(...kp).classList.add("in-check");
   }
 
-  // Show damage number on defender's square after combat
-  if(game.lastCombat){
-    const [dr, dc] = game.lastCombat.defenderPos;
-    spawnDamageNumber(getCell(dr, dc), game.lastCombat.damage, game.lastCombat.defenderSurvived);
-  }
-
   renderPieceInfo();
   renderPanel();
 }
 
 function renderPieceInfo() {
-  // Show stats for the selected piece, or the piece hovered/last inspected
-  const inspectPos = selected;
+  // Show stats for the selected piece, or the last clicked piece (any team/turn)
+  const inspectPos = selected ?? inspectedPos;
   const piece = inspectPos ? game.board.get(...inspectPos) : null;
 
   if (!piece) {
@@ -434,24 +430,123 @@ function logMove(src, dst, piece, combat) {
   }
 }
 
+// ── Attack animation ──────────────────────────────────────────────────────────
+function animateAttack(src, dst, attackerPiece, defenderPiece, combat, onComplete) {
+  isAnimating = true;
+
+  const srcCell = getCell(...src);
+  const dstCell = getCell(...dst);
+  const sr  = srcCell.getBoundingClientRect();
+  const dr  = dstCell.getBoundingClientRect();
+  const sx  = sr.left + sr.width  / 2;
+  const sy  = sr.top  + sr.height / 2;
+  const offX = (dr.left + dr.width  / 2) - sx;
+  const offY = (dr.top  + dr.height / 2) - sy;
+  const arc  = Math.min(32, Math.hypot(offX, offY) * 0.28);
+  const spin = offX >= 0 ? 10 : -10;
+
+  // Floating ghost of the attacker
+  const ghost = document.createElement("span");
+  ghost.className = `piece ${attackerPiece.team === Team.WHITE ? "white" : "black"}`;
+  ghost.textContent = SYMBOLS[attackerPiece.team][attackerPiece.type];
+  Object.assign(ghost.style, {
+    position:      "fixed",
+    left:          `${sx}px`,
+    top:           `${sy}px`,
+    fontSize:      "44px",
+    lineHeight:    "1",
+    zIndex:        "50",
+    pointerEvents: "none",
+    willChange:    "transform",
+    transform:     "translate(-50%,-50%)",
+    filter:        "drop-shadow(1px 2px 4px rgba(0,0,0,.8)) drop-shadow(0 0 14px rgba(255,210,60,.9))",
+  });
+  document.body.appendChild(ghost);
+
+  // Hide the real piece at src while the ghost is airborne
+  const srcSpan = srcCell.querySelector(".piece");
+  if (srcSpan) srcSpan.style.opacity = "0";
+
+  // ── Arc flight to defender ────────────────────────────────────────────────
+  const fly = ghost.animate([
+    { transform: `translate(-50%,-50%) scale(1) rotate(0deg)` },
+    { transform: `translate(calc(-50% + ${offX * .5}px), calc(-50% + ${offY * .5 - arc}px)) scale(1.22) rotate(${spin}deg)`, offset: .45 },
+    { transform: `translate(calc(-50% + ${offX}px), calc(-50% + ${offY}px)) scale(.85) rotate(0deg)` },
+  ], { duration: 210, easing: "ease-in", fill: "forwards" });
+
+  fly.onfinish = () => {
+    // Damage number at the exact moment of impact
+    spawnDamageNumber(dstCell, combat.damage, combat.defenderSurvived);
+
+    // Clash spark (⚔ hit / 💥 kill)
+    const clash = document.createElement("div");
+    clash.className = "clash-fx";
+    clash.textContent = combat.defenderSurvived ? "⚔" : "💥";
+    dstCell.appendChild(clash);
+    clash.addEventListener("animationend", () => clash.remove(), { once: true });
+
+    if (combat.defenderSurvived) {
+      // ── Defender survived: flash cell, bounce attacker back ───────────────
+      dstCell.classList.add("hit-flash");
+      setTimeout(() => dstCell.classList.remove("hit-flash"), 400);
+
+      const bounce = ghost.animate([
+        { transform: `translate(calc(-50% + ${offX}px), calc(-50% + ${offY}px)) scale(.85)` },
+        { transform: `translate(calc(-50% + ${offX * .12}px), calc(-50% + ${offY * .12}px)) scale(1.06)`, offset: .62 },
+        { transform: "translate(-50%,-50%) scale(1)" },
+      ], { duration: 195, easing: "ease-out", fill: "forwards" });
+
+      bounce.onfinish = () => {
+        ghost.remove();
+        if (srcSpan) srcSpan.style.opacity = "";
+        isAnimating = false;
+        onComplete();
+      };
+
+    } else {
+      // ── Defender killed: spin defender out, then commit board state ───────
+      const dstSpan = dstCell.querySelector(".piece");
+      if (dstSpan) dstSpan.style.animation = "deathSpin .45s ease-in forwards";
+
+      setTimeout(() => {
+        ghost.remove();
+        isAnimating = false;
+        onComplete();
+      }, 460);
+    }
+  };
+}
+
 function onCellClick(e){
-  if(game.status!=="ongoing") return;
+  if(game.status!=="ongoing" || isAnimating) return;
   const row=parseInt(e.currentTarget.dataset.row);
   const col=parseInt(e.currentTarget.dataset.col);
+
+  // Track last clicked piece for info panel (any team, any turn)
+  if(game.board.get(row,col)) inspectedPos = [row, col];
+
   if(selected){
     const isLegal=legalDsts.some(([r,c])=>r===row&&c===col);
     if(isLegal){
       const movingPiece=game.board.get(...selected);
       const targetPiece=game.board.get(row,col);
-      game.move(selected,[row,col]);
+      const src=[...selected];
+      const dst=[row,col];
+      game.move(src, dst);
       const combat=game.lastCombat;
       if(targetPiece && combat && !combat.defenderSurvived){
         killedPieces[movingPiece.team].push(targetPiece);
       }
       const survived = combat?.defenderSurvived ?? false;
-      lastMove={ src:selected, dst:[row,col], survived };
-      logMove(selected,[row,col],movingPiece,combat);
+      lastMove={ src, dst, survived };
+      logMove(src, dst, movingPiece, combat);
       selected=null; legalDsts=[];
+
+      // Combat: run animation, defer render until it finishes
+      if(targetPiece && combat){
+        animateAttack(src, dst, movingPiece, targetPiece, combat, () => render());
+        return;
+      }
     } else {
       const piece=game.board.get(row,col);
       if(piece?.team===game.turn){ selected=[row,col]; legalDsts=game.legalMovesFor(selected); }
@@ -465,7 +560,7 @@ function onCellClick(e){
 }
 
 function newGame(){
-  game=new Game(); selected=null; legalDsts=[]; lastMove=null;
+  game=new Game(); selected=null; legalDsts=[]; lastMove=null; inspectedPos=null; isAnimating=false;
   killedPieces={[Team.WHITE]:[],[Team.BLACK]:[]}; moveNumber=1; whiteNotation="";
   logEl.innerHTML=""; overlay.classList.remove("show");
   pieceInfo.className="piece-info empty";
