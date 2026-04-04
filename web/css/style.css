@@ -5,8 +5,8 @@
   --bg:          #0d0f14;
   --panel-bg:    #13161e;
   --border:      #2a2d3a;
-  --light-sq:    #4f7b33;
-  --dark-sq:     #2b5218;
+  --light-sq:    #c8a96e;
+  --dark-sq:     #6b4226;
   --highlight:   rgba(255, 220, 50, 0.45);
   --legal-dot:   rgba(255, 220, 50, 0.6);
   --capture-ring:rgba(220, 60, 60, 0.75);
@@ -102,10 +102,8 @@ header p {
   display: grid;
   grid-template-columns: repeat(8, 72px);
   grid-template-rows:    repeat(8, 72px);
-  border: 4px solid #1a3310;
-  outline: 2px solid #0d1f08;
-  image-rendering: pixelated;
-  box-shadow: 0 0 40px rgba(0,0,0,.8), 0 0 80px rgba(60,120,30,.12), 0 6px 24px rgba(0,0,0,.6);
+  border: 2px solid var(--border);
+  box-shadow: 0 0 40px rgba(0,0,0,.8), 0 0 80px rgba(200,163,64,.08);
 }
 
 .cell {
@@ -119,35 +117,8 @@ header p {
   transition: background .12s;
   user-select: none;
 }
-/* Grass pixel texture: vertical blade stripes + faint horizontal row lines */
-.cell.light {
-  background-color: var(--light-sq);
-  background-image:
-    repeating-linear-gradient(
-      90deg,
-      transparent 0px, transparent 3px,
-      rgba(255,255,255,.04) 3px, rgba(255,255,255,.04) 4px
-    ),
-    repeating-linear-gradient(
-      0deg,
-      transparent 0px, transparent 7px,
-      rgba(0,0,0,.10) 7px, rgba(0,0,0,.10) 8px
-    );
-}
-.cell.dark {
-  background-color: var(--dark-sq);
-  background-image:
-    repeating-linear-gradient(
-      90deg,
-      transparent 0px, transparent 3px,
-      rgba(255,255,255,.03) 3px, rgba(255,255,255,.03) 4px
-    ),
-    repeating-linear-gradient(
-      0deg,
-      transparent 0px, transparent 7px,
-      rgba(0,0,0,.15) 7px, rgba(0,0,0,.15) 8px
-    );
-}
+.cell.light { background: var(--light-sq); }
+.cell.dark  { background: var(--dark-sq); }
 
 /* selected */
 .cell.selected {
@@ -207,26 +178,11 @@ header p {
   font-size: 44px;
   line-height: 1;
   pointer-events: none;
+  filter: drop-shadow(1px 2px 3px rgba(0,0,0,.7));
   transition: transform .1s;
 }
-/* White pieces: hard pixel offset shadow (3D extrusion) + soft depth halo */
-.piece.white {
-  color: var(--white-piece);
-  filter:
-    drop-shadow(2px 3px 0px rgba(0,0,0,.95))
-    drop-shadow(3px 5px 0px rgba(0,0,0,.55))
-    drop-shadow(0px 6px 8px rgba(0,0,0,.5))
-    drop-shadow(-1px -1px 0px rgba(255,255,255,.25));
-}
-/* Black pieces: deeper extrusion to stand out from dark squares */
-.piece.black {
-  color: var(--black-piece);
-  filter:
-    drop-shadow(2px 3px 0px rgba(0,0,0,1))
-    drop-shadow(3px 5px 0px rgba(0,0,0,.7))
-    drop-shadow(0px 6px 10px rgba(0,0,0,.6))
-    drop-shadow(0px 0px 3px rgba(180,220,100,.2));
-}
+.piece.white { color: var(--white-piece); }
+.piece.black { color: var(--black-piece); }
 
 /* ── Side panel ───────────────────────────────────────────────────────── */
 .panel {
