@@ -1,8 +1,9 @@
-"""Base chess piece — extended by battle attributes in feature/piece-attributes."""
+"""Base chess piece with battle stats."""
 from __future__ import annotations
 from typing import List, TYPE_CHECKING
 from src.core.constants import WHITE, BLACK
 from src.core.position import Position
+from src.pieces.stats import PieceStats, default_stats
 
 if TYPE_CHECKING:
     from src.core.board import Board
@@ -15,6 +16,7 @@ class Piece:
         self.team       = team          # WHITE or BLACK
         self.piece_type = piece_type
         self.has_moved  = False
+        self.stats: PieceStats = default_stats(piece_type)
 
     # ------------------------------------------------------------------
     # Movement
